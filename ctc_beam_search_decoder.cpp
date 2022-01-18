@@ -18,7 +18,6 @@ using FSTMATCH = fst::SortedMatcher<fst::StdVectorFst>;
 std::vector<std::pair<double, std::string>> ctc_beam_search_decoder(
     const std::vector<std::vector<double>> &probs_seq,
     const std::vector<std::string> &vocabulary,
-    const std::vector<int> &start_tokens,
     size_t beam_size,
     double cutoff_prob,
     size_t cutoff_top_n,
@@ -35,17 +34,6 @@ std::vector<std::pair<double, std::string>> ctc_beam_search_decoder(
 
   // assign blank id
   size_t blank_id = vocabulary.size();
-
-  // assign space id
-  auto it = std::find(vocabulary.begin(), vocabulary.end(), "▁");
-  int space_id = it - vocabulary.begin(); 
-  
-  // std::string kk = vocabulary[space_id+1];
-  // auto k = kk[0];
-  // if no space in vocabulary
-  if ((size_t)space_id >= vocabulary.size()) {
-    space_id = -2;
-  }
 
   // init prefixes' root
   PathTrie root;
@@ -82,12 +70,20 @@ std::vector<std::pair<double, std::string>> ctc_beam_search_decoder(
     for (size_t index = 0; index < log_prob_idx.size(); index++) {
       auto c = log_prob_idx[index].first;
       auto log_prob_c = log_prob_idx[index].second;
-      
+      // 判断当前token是否是新word的开始，原规整字符串出现完整word
+      bool word_end = false;
+      if (c < vocabulary.size()) {
+        std::string token = vocabulary[c];
+        if (token.substr(0, 1) != "#"){
+          word_end = true;
+        }
+      }
       for (size_t i = 0; i < prefixes.size() && i < beam_size; ++i) {
         auto prefix = prefixes[i];
         if (full_beam && log_prob_c + prefix->score < min_cutoff) {
           break;
         }
+        
         // blank
         if (c == blank_id) {
           prefix->log_prob_b_cur =
@@ -101,7 +97,7 @@ std::vector<std::pair<double, std::string>> ctc_beam_search_decoder(
         }
         // get new prefix
         // 在原规整字符串上加当前token，看能否得到新的规整字符串
-        auto prefix_new = prefix->get_path_trie(c);
+        auto prefix_new = prefix->get_path_trie(c, word_end);
 
         // 如果能得到新的规则字符串，则初始化这个prefix的各项参数
         if (prefix_new != nullptr) {
@@ -117,12 +113,7 @@ std::vector<std::pair<double, std::string>> ctc_beam_search_decoder(
           }
 
           // language model scoring
-          // 判断当前token是否是新word的开始，原规整字符串出现完整word
-          bool word_end = false;
-          auto it = std::find(start_tokens.begin(), start_tokens.end(), (int)c);
-          if (it != start_tokens.end()){
-            word_end = true;
-          }
+          
           // 原规整字符串出现完整word，则引入n-gram的score
           if (ext_scorer != nullptr && prefix->character != -1 &&
               (word_end || ext_scorer->is_character_based())) {
@@ -140,13 +131,7 @@ std::vector<std::pair<double, std::string>> ctc_beam_search_decoder(
             float score = 0.0;
             std::vector<std::string> ngram;
             ngram = ext_scorer->make_ngram(prefix_to_score);
-            // 去除word中的▁
-            for (int i=0;i<ngram.size();i++){
-              int start_flag_pos = ngram[i].find("▁");
-              if (start_flag_pos != std::string::npos){
-                ngram[i] = ngram[i].replace(start_flag_pos, 3, "");
-              }
-            }
+            
             score = ext_scorer->get_log_cond_prob(ngram) * ext_scorer->alpha;
             log_p += score;
             log_p += ext_scorer->beta;
@@ -178,16 +163,9 @@ std::vector<std::pair<double, std::string>> ctc_beam_search_decoder(
   if (ext_scorer != nullptr && !ext_scorer->is_character_based()) {
     for (size_t i = 0; i < beam_size && i < prefixes.size(); ++i) {
       auto prefix = prefixes[i];
-      if (!prefix->is_empty() && prefix->character != space_id) {
+      if (!prefix->is_empty()) {
         float score = 0.0;
         std::vector<std::string> ngram = ext_scorer->make_ngram(prefix);
-        // 去除word中的▁
-        for (int i=0;i<ngram.size();i++){
-          int start_flag_pos = ngram[i].find("▁");
-          if (start_flag_pos != std::string::npos){
-            ngram[i] = ngram[i].replace(start_flag_pos, 3, "");
-          }
-        }
         score = ext_scorer->get_log_cond_prob(ngram) * ext_scorer->alpha;
         score += ext_scorer->beta;
         prefix->score += score;
@@ -204,7 +182,7 @@ std::vector<std::pair<double, std::string>> ctc_beam_search_decoder(
     double approx_ctc = prefixes[i]->score;
     if (ext_scorer != nullptr) {
       std::vector<int> output;
-      prefixes[i]->get_path_vec(output);
+      prefixes[i]->get_path_vec2(output, vocabulary);
       auto prefix_length = output.size();
       auto words = ext_scorer->split_labels(output);
       // remove word insert
@@ -459,7 +437,6 @@ std::vector<std::vector<std::pair<double, std::string>>>
 ctc_beam_search_decoder_batch(
     const std::vector<std::vector<std::vector<double>>> &probs_split,
     const std::vector<std::string> &vocabulary,
-    const std::vector<int> &start_tokens,
     size_t beam_size,
     size_t num_processes,
     double cutoff_prob,
@@ -477,7 +454,6 @@ ctc_beam_search_decoder_batch(
     res.emplace_back(pool.enqueue(ctc_beam_search_decoder,
                                   probs_split[i],
                                   vocabulary,
-                                  start_tokens,
                                   beam_size,
                                   cutoff_prob,
                                   cutoff_top_n,
@@ -491,6 +467,5 @@ ctc_beam_search_decoder_batch(
   }
   return batch_results;
 }
-
 
 

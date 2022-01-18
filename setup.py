@@ -83,7 +83,8 @@ LIBS = ['stdc++']
 if platform.system() != 'Darwin':
     LIBS.append('rt')
 
-ARGS = ['-O3', '-DNDEBUG', '-DKENLM_MAX_ORDER=6', '-std=c++11']
+ARGS = ['-O3', '-DKENLM_MAX_ORDER=6', '-std=c++11']
+# ARGS = ['-O0', '-DNDEBUG', '-DKENLM_MAX_ORDER=6', '-std=c++11']
 
 if compile_test('zlib.h', 'z'):
     ARGS.append('-DHAVE_ZLIB')

@@ -43,11 +43,10 @@ public:
   Scorer(double alpha,
          double beta,
          const std::string &lm_path,
+         const std::string &word_path,
          const std::vector<std::string> &vocabulary);
   ~Scorer();
-
   double get_log_cond_prob(const std::vector<std::string> &words);
-
   double get_sent_log_prob(const std::vector<std::string> &words);
 
   // return the max order
@@ -77,6 +76,10 @@ public:
   // pointer to the dictionary of FST
   void *dictionary;
 
+  // word and subword map
+  std::unordered_map<std::string, std::vector<std::string> > word_map_;
+  void load_words(const std::string &word_path);
+
 protected:
   // necessary setup: load language model, set char map, fill FST's dictionary
   void setup(const std::string &lm_path,
@@ -86,7 +89,7 @@ protected:
   void load_lm(const std::string &lm_path);
 
   // fill dictionary for FST
-  void fill_dictionary(bool add_space);
+  void fill_dictionary();
 
   // set char map
   void set_char_map(const std::vector<std::string> &char_list);
@@ -95,17 +98,13 @@ protected:
 
   // translate the vector in index to string
   std::string vec2str(const std::vector<int> &input);
-
+  
 private:
   void *language_model_;
   bool is_character_based_;
   size_t max_order_;
   size_t dict_size_;
 
-  // int SPACE_ID_;
-  // 在subword建模的AM中没有空格，这里设计一个代表word开头的tokens集合
-  // 用于后续的分词
-  std::vector<int> start_tokens_;
   std::vector<std::string> char_list_;
   std::unordered_map<std::string, int> char_map_;
 
@@ -113,5 +112,4 @@ private:
 };
 
 #endif  // SCORER_H_
-
 

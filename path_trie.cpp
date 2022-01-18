@@ -52,17 +52,13 @@ PathTrie* PathTrie::get_path_trie(int new_char, bool reset) {
     return (child->second);
   } else {
     if (has_dictionary_) {
-      matcher_->SetState(dictionary_state_);
-      bool found = true; 
-      // bool found = matcher_->Find(new_char + 1);
+      if (reset){
+        matcher_->SetState(dictionary_->Start());
+      } else {
+        matcher_->SetState(dictionary_state_);
+      }
+      bool found = matcher_->Find(new_char + 1);
       if (!found) {
-        // Adding this character causes word outside dictionary
-        auto FSTZERO = fst::TropicalWeight::Zero();
-        auto final_weight = dictionary_->Final(dictionary_state_);
-        bool is_final = (final_weight != FSTZERO);
-        if (is_final && reset) {
-          dictionary_state_ = dictionary_->Start();
-        }
         return nullptr;
       } else {
         PathTrie* new_path = new PathTrie;
@@ -85,15 +81,29 @@ PathTrie* PathTrie::get_path_trie(int new_char, bool reset) {
   }
 }
 
-PathTrie* PathTrie::get_path_vec(std::vector<int>& output, std::vector<uint32_t>* timestamps) {
-  std::vector<int> no_tokens;
-  no_tokens.push_back(ROOT_);
-  return get_path_vec(output, no_tokens, std::numeric_limits<size_t>::max(), timestamps);
+PathTrie* PathTrie::get_path_vec2(std::vector<int>& output,
+                                  const std::vector<std::string>& char_list,
+                                  std::vector<uint32_t>* timestamps) {
+  if (character == ROOT_) {
+    std::reverse(output.begin(), output.end());
+    if (timestamps) {
+      std::reverse(timestamps->begin(), timestamps->end());
+    }
+    return this;
+  } else {
+    output.push_back(character);
+    if (timestamps) {
+      if (timestamps->size() == 0 || output[output.size()-1] == 0 || parent->character == ROOT_ || parent->character == 0) {
+        timestamps->push_back(offset);
+      }
+    }
+    return parent->get_path_vec2(output, char_list, timestamps);
+  }
 }
 
+
 PathTrie* PathTrie::get_path_vec(std::vector<int>& output,
-                                //  int stop,
-                                 std::vector<int>& start_tokens,
+                                 std::vector<std::string>& char_list,
                                  size_t max_steps,
                                  std::vector<uint32_t>* timestamps) {
   // TODO 如果当前路径的token为start_token，
@@ -106,8 +116,8 @@ PathTrie* PathTrie::get_path_vec(std::vector<int>& output,
     }
     return this;
   } else {
-    auto it = std::find(start_tokens.begin(), start_tokens.end(), character);
-    if (it != start_tokens.end()){
+    std::string token = char_list[character];
+    if (token.substr(0, 1) != "#") {
       output.push_back(character);
       std::reverse(output.begin(), output.end());
       if (timestamps) {
@@ -124,31 +134,9 @@ PathTrie* PathTrie::get_path_vec(std::vector<int>& output,
           timestamps->push_back(offset);
         }
       }
-      return parent->get_path_vec(output, start_tokens, max_steps, timestamps);
+      return parent->get_path_vec(output, char_list, max_steps, timestamps);
     }
   }
-
-
-
-  // if (character == stop || character == ROOT_ || output.size() == max_steps) {
-  //   std::reverse(output.begin(), output.end());
-  //   if (timestamps) {
-  //     std::reverse(timestamps->begin(), timestamps->end());
-  //   }
-  //   return this;
-  // } else {
-  //   output.push_back(character);
-  //   if (timestamps) {
-  //     if (timestamps->size() == 0 || output[output.size()-1] == 0 || parent->character == ROOT_ || parent->character == 0) {
-  //       timestamps->push_back(offset);
-  //     }
-  //   }
-  //   return parent->get_path_vec(output, stop, max_steps, timestamps);
-  // }
-
-
-
-
 }
 
 void PathTrie::iterate_to_vec(std::vector<PathTrie*>& output) {
@@ -198,6 +186,8 @@ using FSTMATCH = fst::SortedMatcher<fst::StdVectorFst>;
 void PathTrie::set_matcher(std::shared_ptr<FSTMATCH> matcher) {
   matcher_ = matcher;
 }
+
+
 
 
 

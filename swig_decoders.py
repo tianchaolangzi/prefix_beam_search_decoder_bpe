@@ -1136,8 +1136,8 @@ class Scorer(object):
     thisown = property(lambda x: x.this.own(), lambda x, v: x.this.own(v), doc="The membership flag")
     __repr__ = _swig_repr
 
-    def __init__(self, alpha, beta, lm_path, vocabulary):
-        _swig_decoders.Scorer_swiginit(self, _swig_decoders.new_Scorer(alpha, beta, lm_path, vocabulary))
+    def __init__(self, alpha, beta, lm_path, word_path, vocabulary):
+        _swig_decoders.Scorer_swiginit(self, _swig_decoders.new_Scorer(alpha, beta, lm_path, word_path, vocabulary))
     __swig_destroy__ = _swig_decoders.delete_Scorer
 
     def get_log_cond_prob(self, words):
@@ -1166,6 +1166,10 @@ class Scorer(object):
     alpha = property(_swig_decoders.Scorer_alpha_get, _swig_decoders.Scorer_alpha_set)
     beta = property(_swig_decoders.Scorer_beta_get, _swig_decoders.Scorer_beta_set)
     dictionary = property(_swig_decoders.Scorer_dictionary_get, _swig_decoders.Scorer_dictionary_set)
+    word_map_ = property(_swig_decoders.Scorer_word_map__get, _swig_decoders.Scorer_word_map__set)
+
+    def load_words(self, word_path):
+        return _swig_decoders.Scorer_load_words(self, word_path)
 
 # Register Scorer in _swig_decoders:
 _swig_decoders.Scorer_swigregister(Scorer)
@@ -1174,8 +1178,8 @@ _swig_decoders.Scorer_swigregister(Scorer)
 def ctc_greedy_decoder(probs_seq, vocabulary):
     return _swig_decoders.ctc_greedy_decoder(probs_seq, vocabulary)
 
-def ctc_beam_search_decoder(probs_seq, vocabulary, start_tokens, beam_size, cutoff_prob=1.0, cutoff_top_n=40, ext_scorer=None):
-    return _swig_decoders.ctc_beam_search_decoder(probs_seq, vocabulary, start_tokens, beam_size, cutoff_prob, cutoff_top_n, ext_scorer)
+def ctc_beam_search_decoder(probs_seq, vocabulary, beam_size, cutoff_prob=1.0, cutoff_top_n=40, ext_scorer=None):
+    return _swig_decoders.ctc_beam_search_decoder(probs_seq, vocabulary, beam_size, cutoff_prob, cutoff_top_n, ext_scorer)
 class BeamDecoder(object):
     thisown = property(lambda x: x.this.own(), lambda x, v: x.this.own(v), doc="The membership flag")
     __repr__ = _swig_repr
@@ -1203,7 +1207,7 @@ class BeamDecoder(object):
 _swig_decoders.BeamDecoder_swigregister(BeamDecoder)
 
 
-def ctc_beam_search_decoder_batch(probs_split, vocabulary, start_tokens, beam_size, num_processes, cutoff_prob=1.0, cutoff_top_n=40, ext_scorer=None):
-    return _swig_decoders.ctc_beam_search_decoder_batch(probs_split, vocabulary, start_tokens, beam_size, num_processes, cutoff_prob, cutoff_top_n, ext_scorer)
+def ctc_beam_search_decoder_batch(probs_split, vocabulary, beam_size, num_processes, cutoff_prob=1.0, cutoff_top_n=40, ext_scorer=None):
+    return _swig_decoders.ctc_beam_search_decoder_batch(probs_split, vocabulary, beam_size, num_processes, cutoff_prob, cutoff_top_n, ext_scorer)
 
 

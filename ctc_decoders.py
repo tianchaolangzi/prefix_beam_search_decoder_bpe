@@ -19,8 +19,8 @@ class Scorer(swig_decoders.Scorer):
     :type model_path: basestring
     """
 
-    def __init__(self, alpha, beta, model_path, vocabulary):
-        swig_decoders.Scorer.__init__(self, alpha, beta, model_path, vocabulary)
+    def __init__(self, alpha, beta, model_path, word_path, vocabulary):
+        swig_decoders.Scorer.__init__(self, alpha, beta, model_path, word_path, vocabulary)
 
 
 class BeamDecoder(swig_decoders.BeamDecoder):
@@ -62,7 +62,6 @@ def ctc_greedy_decoder(probs_seq, vocabulary):
 
 def ctc_beam_search_decoder(probs_seq,
                             vocabulary,
-                            start_tokens,
                             beam_size,
                             cutoff_prob=1.0,
                             cutoff_top_n=40,
@@ -93,7 +92,7 @@ def ctc_beam_search_decoder(probs_seq,
     :rtype: list
     """
     beam_results = swig_decoders.ctc_beam_search_decoder(
-        probs_seq.tolist(), vocabulary, start_tokens, beam_size, cutoff_prob, cutoff_top_n,
+        probs_seq.tolist(), vocabulary, beam_size, cutoff_prob, cutoff_top_n,
         ext_scoring_func)
     beam_results = [(res[0], res[1]) for res in beam_results]
     return beam_results
@@ -101,7 +100,6 @@ def ctc_beam_search_decoder(probs_seq,
 
 def ctc_beam_search_decoder_batch(probs_split,
                                   vocabulary,
-                                  start_tokens,
                                   beam_size,
                                   num_processes,
                                   cutoff_prob=1.0,
@@ -138,7 +136,7 @@ def ctc_beam_search_decoder_batch(probs_split,
     probs_split = [probs_seq.tolist() for probs_seq in probs_split]
 
     batch_beam_results = swig_decoders.ctc_beam_search_decoder_batch(
-        probs_split, vocabulary, start_tokens, beam_size, num_processes, cutoff_prob,
+        probs_split, vocabulary, beam_size, num_processes, cutoff_prob,
         cutoff_top_n, ext_scoring_func)
     batch_beam_results = [
         [(res[0], res[1]) for res in beam_results]

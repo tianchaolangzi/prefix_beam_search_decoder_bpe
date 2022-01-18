@@ -16,6 +16,7 @@ using namespace lm::ngram;
 Scorer::Scorer(double alpha,
                double beta,
                const std::string& lm_path,
+               const std::string& word_path,
                const std::vector<std::string>& vocab_list) {
   this->alpha = alpha;
   this->beta = beta;
@@ -26,9 +27,8 @@ Scorer::Scorer(double alpha,
 
   max_order_ = 0;
   dict_size_ = 0;
-  // SPACE_ID_ = -1;
-  // start_tokens_ 在下面初始化
 
+  load_words(word_path);
   setup(lm_path, vocab_list);
 }
 
@@ -41,6 +41,30 @@ Scorer::~Scorer() {
   }
 }
 
+void Scorer::load_words(const std::string& word_path) {
+  //const char* filename = word_path.c_str();
+  //VALID_CHECK_EQ(access(filename, F_OK), 0, "Invalid language model path");
+  word_map_.clear();
+  //std::ifstream inFile(filename);
+  std::ifstream inFile(word_path);
+  if(inFile.is_open()) {
+    std::string str;
+    while(!inFile.eof()) {
+      getline(inFile, str, '\n');
+      if(str.length() == 0) {
+        continue;
+      }
+      std::vector<std::string> splitted = split_str(str, " ");
+      //std::vector<std::string> pieces(splitted.begin() + 1, splitted.end());
+      //word_map_[splitted.at(0)] = splitted;
+      if (splitted.size() > 1) {
+        std::vector<std::string> pieces(splitted.begin() + 1, splitted.end());
+	word_map_[splitted[0]] = pieces;
+      }
+    }
+  }
+}
+
 void Scorer::setup(const std::string& lm_path,
                    const std::vector<std::string>& vocab_list) {
   // load language model
@@ -49,7 +73,7 @@ void Scorer::setup(const std::string& lm_path,
   set_char_map(vocab_list);
   // fill the dictionary for FST
   if (!is_character_based()) {
-    fill_dictionary(true);
+    fill_dictionary();
   }
 }
 
@@ -127,8 +151,18 @@ void Scorer::reset_params(float alpha, float beta) {
 
 std::string Scorer::vec2str(const std::vector<int>& input) {
   std::string word;
-  for (auto ind : input) {
-    word += char_list_[ind];
+  for (int i = 0; i < input.size(); ++i) {
+    int ind = input[i];
+    if (char_list_[ind].substr(0, 1) == "#") {
+      word += char_list_[ind].substr(2);
+    } else {
+      if (i != 0) {
+        word += " ";
+      }
+      if (char_list_[ind] != "▁") {
+        word += char_list_[ind];
+      }
+    }
   }
   return word;
 }
@@ -141,7 +175,7 @@ std::vector<std::string> Scorer::split_labels(const std::vector<int>& labels) {
   if (is_character_based_) {
     words = split_utf8_str(s);
   } else {
-    words = split_str(s, "▁");
+    words = split_str(s, " ");
   }
   return words;
 }
@@ -152,17 +186,6 @@ void Scorer::set_char_map(const std::vector<std::string>& char_list) {
 
   // Set the char map for the FST for spelling correction
   for (size_t i = 0; i < char_list_.size(); i++) {
-    // if (char_list_[i] == " ") {
-    //   SPACE_ID_ = i;
-    // }
-    // 初始化start_tokens_
-    if (char_list_[i].substr(0, 3) == "▁") {
-        start_tokens_.push_back(i);
-    }
-
-    // The initial state of FST is state 0, hence the index of chars in
-    // the FST should start from 1 to avoid the conflict with the initial
-    // state, otherwise wrong decoding results would be given.
     char_map_[char_list_[i]] = i + 1;
   }
 }
@@ -176,11 +199,11 @@ std::vector<std::string> Scorer::make_ngram(PathTrie* prefix) {
     std::vector<int> prefix_vec;
 
     if (is_character_based_) {
+      // subword decoder should not enter this branch
       // new_node = current_node->get_path_vec(prefix_vec, SPACE_ID_, 1);
       current_node = new_node;
     } else {
-      // new_node = current_node->get_path_vec(prefix_vec, SPACE_ID_);
-      new_node = current_node->get_path_vec(prefix_vec, start_tokens_);
+      new_node = current_node->get_path_vec(prefix_vec, char_list_);
       //current_node = new_node->parent;  // Skipping spaces
       current_node = new_node;
     }
@@ -201,16 +224,16 @@ std::vector<std::string> Scorer::make_ngram(PathTrie* prefix) {
   return ngram;
 }
 
-void Scorer::fill_dictionary(bool add_space) {
+void Scorer::fill_dictionary() {
   fst::StdVectorFst dictionary;
   // For each unigram convert to ints and put in trie
   int dict_size = 0;
   for (const auto& word : vocabulary_) {
-    bool added = add_word_to_dictionary(
-        word, char_map_, add_space, 1, &dictionary);
-    dict_size += added ? 1 : 0;
+    if (word_map_.find(word) != word_map_.end()) {
+      bool added = add_word_to_dictionary(word, word_map_[word], char_map_, &dictionary);
+      dict_size += added ? 1 : 0;
+    }
   }
-
   dict_size_ = dict_size;
 
   /* Simplify FST
@@ -236,6 +259,5 @@ void Scorer::fill_dictionary(bool add_space) {
   fst::Minimize(new_dict);
   this->dictionary = new_dict;
 }
-
 
 

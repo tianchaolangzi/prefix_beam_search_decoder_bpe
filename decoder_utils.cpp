@@ -57,12 +57,25 @@ std::vector<std::pair<double, std::string>> get_beam_search_result(
   for (size_t i = 0; i < beam_size && i < space_prefixes.size(); ++i) {
     std::vector<int> output;
     // request timestamp only for best result
-    space_prefixes[i]->get_path_vec(output, i == 0 ? &timestamps : nullptr);
+    space_prefixes[i]->get_path_vec2(output, vocabulary, i == 0 ? &timestamps : nullptr);
     // convert index to string
     std::string output_str;
-    for (size_t j = 0; j < output.size(); j++) {
-      output_str += vocabulary[output[j]];
+    for (int i = 0; i < output.size(); ++i) {
+      int ind = output[i];
+      if (vocabulary[ind].substr(0, 1) == "#") {
+        output_str += vocabulary[ind].substr(2);
+      } else {
+        if (i != 0) {
+          output_str += " ";
+        }
+        if (vocabulary[ind] != "▁") {
+          output_str += vocabulary[ind];
+        }
+      }
     }
+    // for (size_t j = 0; j < output.size(); j++) {
+    //   output_str += vocabulary[output[j]];
+    // }
     std::pair<double, std::string> output_pair(space_prefixes[i]->score,
                                                output_str);
     output_vecs.emplace_back(output_pair);
@@ -165,38 +178,35 @@ void add_word_to_fst(const std::vector<int> &word,
 
 bool add_word_to_dictionary(
     const std::string &word,
+    std::vector<std::string> &word_tokens,
     const std::unordered_map<std::string, int> &char_map,
-    bool add_space,
-    int SPACE_ID,
     fst::StdVectorFst *dictionary) {
-  
-  std::string word_p = "▁" + word;	
-  auto chars = split_utf8_str(word_p);
 
   std::vector<int> int_word;
-
-    bool no_oov = true;
-    for (size_t start = 0; start < chars.size();) {
-      for (size_t end = chars.size(); end > start; --end) {
-        std::string word;
-        for (size_t i = start; i < end; i++) {
-          word += chars[i];
+  bool no_oov = true;
+  std::string token; 
+  for (int i = 0; i < word_tokens.size(); ++i) {
+    if (word_tokens[i] == "▁") {
+      token = word_tokens[i];
+    } else {
+        if (word_tokens[i].substr(0, 3) == "▁") {
+            token = word_tokens[i].substr(3);
+        } else {
+          token = "##" + word_tokens[i];
         }
-        auto int_c = char_map.find(word);
-        if (int_c != char_map.end()) {
-          int_word.push_back(int_c->second);
-          start = end;
-          continue;
-        }
-        if (end == start + 1) {
-          ++start;
-          no_oov = false;
-          return no_oov;
-          // LOG(WARNING) << word << " is oov.";
-        }
-      }
     }
-    // int_word.push_back(130); 
-    add_word_to_fst(int_word, dictionary);
-    return no_oov;
+    auto int_c = char_map.find(token);
+    if (int_c != char_map.end()) {
+      int_word.push_back(int_c->second);
+    } else {
+      no_oov = false;
+      return no_oov;
+    }
+  }    
+  add_word_to_fst(int_word, dictionary);
+  return no_oov;
 }
+
+
+
+

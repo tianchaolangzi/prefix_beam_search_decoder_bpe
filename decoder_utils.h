@@ -88,8 +88,8 @@ void add_word_to_fst(const std::vector<int> &word,
 // Add a word in string to dictionary
 bool add_word_to_dictionary(
     const std::string &word,
+    std::vector<std::string> &word_tokens,
     const std::unordered_map<std::string, int> &char_map,
-    bool add_space,
-    int SPACE_ID,
     fst::StdVectorFst *dictionary);
 #endif  // DECODER_UTILS_H
+ 
